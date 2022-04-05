@@ -1451,3 +1451,334 @@ sjcl.misc.cachedPbkdf2 = function (a, b) {
     salt: c.slice(0),
   };
 };
+var saveAs =
+  saveAs ||
+  (navigator.msSaveBlob && navigator.msSaveBlob.bind(navigator)) ||
+  (function (view) {
+    "use strict";
+    var doc = view.document,
+      get_URL = function () {
+        return view.URL || view.webkitURL || view;
+      },
+      URL = view.URL || view.webkitURL || view,
+      save_link = doc.createElementNS("http://www.w3.org/1999/xhtml", "a"),
+      can_use_save_link = "download" in save_link,
+      click = function (node) {
+        var event = doc.createEvent("MouseEvents");
+        event.initMouseEvent(
+          "click",
+          true,
+          false,
+          view,
+          0,
+          0,
+          0,
+          0,
+          0,
+          false,
+          false,
+          false,
+          false,
+          0,
+          null
+        );
+        node.dispatchEvent(event);
+      },
+      webkit_req_fs = view.webkitRequestFileSystem,
+      req_fs =
+        view.requestFileSystem || webkit_req_fs || view.mozRequestFileSystem,
+      throw_outside = function (ex) {
+        (view.setImmediate || view.setTimeout)(function () {
+          throw ex;
+        }, 0);
+      },
+      force_saveable_type = "application/octet-stream",
+      fs_min_size = 0,
+      deletion_queue = [],
+      process_deletion_queue = function () {
+        var i = deletion_queue.length;
+        while (i--) {
+          var file = deletion_queue[i];
+          if (typeof file === "string") {
+            URL.revokeObjectURL(file);
+          } else {
+            file.remove();
+          }
+        }
+        deletion_queue.length = 0;
+      },
+      dispatch = function (filesaver, event_types, event) {
+        event_types = [].concat(event_types);
+        var i = event_types.length;
+        while (i--) {
+          var listener = filesaver["on" + event_types[i]];
+          if (typeof listener === "function") {
+            try {
+              listener.call(filesaver, event || filesaver);
+            } catch (ex) {
+              throw_outside(ex);
+            }
+          }
+        }
+      },
+      FileSaver = function (blob, name) {
+        var filesaver = this,
+          type = blob.type,
+          blob_changed = false,
+          object_url,
+          target_view,
+          get_object_url = function () {
+            var object_url = get_URL().createObjectURL(blob);
+            deletion_queue.push(object_url);
+            return object_url;
+          },
+          dispatch_all = function () {
+            dispatch(
+              filesaver,
+              "writestart progress write writeend".split(" ")
+            );
+          },
+          fs_error = function () {
+            if (blob_changed || !object_url) {
+              object_url = get_object_url(blob);
+            }
+            if (target_view) {
+              target_view.location.href = object_url;
+            }
+            filesaver.readyState = filesaver.DONE;
+            dispatch_all();
+          },
+          abortable = function (func) {
+            return function () {
+              if (filesaver.readyState !== filesaver.DONE) {
+                return func.apply(this, arguments);
+              }
+            };
+          },
+          create_if_not_found = {
+            create: true,
+            exclusive: false,
+          },
+          slice;
+        filesaver.readyState = filesaver.INIT;
+        if (!name) {
+          name = "download";
+        }
+        if (can_use_save_link) {
+          object_url = get_object_url(blob);
+          save_link.href = object_url;
+          save_link.download = name;
+          click(save_link);
+          filesaver.readyState = filesaver.DONE;
+          dispatch_all();
+          return;
+        }
+        if (view.chrome && type && type !== force_saveable_type) {
+          slice = blob.slice || blob.webkitSlice;
+          blob = slice.call(blob, 0, blob.size, force_saveable_type);
+          blob_changed = true;
+        }
+        if (webkit_req_fs && name !== "download") {
+          name += ".download";
+        }
+        if (type === force_saveable_type || webkit_req_fs) {
+          target_view = view;
+        } else {
+          target_view = view.open();
+        }
+        if (!req_fs) {
+          fs_error();
+          return;
+        }
+        fs_min_size += blob.size;
+        req_fs(
+          view.TEMPORARY,
+          fs_min_size,
+          abortable(function (fs) {
+            fs.root.getDirectory(
+              "saved",
+              create_if_not_found,
+              abortable(function (dir) {
+                var save = function () {
+                  dir.getFile(
+                    name,
+                    create_if_not_found,
+                    abortable(function (file) {
+                      file.createWriter(
+                        abortable(function (writer) {
+                          writer.onwriteend = function (event) {
+                            target_view.location.href = file.toURL();
+                            deletion_queue.push(file);
+                            filesaver.readyState = filesaver.DONE;
+                            dispatch(filesaver, "writeend", event);
+                          };
+                          writer.onerror = function () {
+                            var error = writer.error;
+                            if (error.code !== error.ABORT_ERR) {
+                              fs_error();
+                            }
+                          };
+                          "writestart progress write abort"
+                            .split(" ")
+                            .forEach(function (event) {
+                              writer["on" + event] = filesaver["on" + event];
+                            });
+                          writer.write(blob);
+                          filesaver.abort = function () {
+                            writer.abort();
+                            filesaver.readyState = filesaver.DONE;
+                          };
+                          filesaver.readyState = filesaver.WRITING;
+                        }),
+                        fs_error
+                      );
+                    }),
+                    fs_error
+                  );
+                };
+                dir.getFile(
+                  name,
+                  {
+                    create: false,
+                  },
+                  abortable(function (file) {
+                    file.remove();
+                    save();
+                  }),
+                  abortable(function (ex) {
+                    if (ex.code === ex.NOT_FOUND_ERR) {
+                      save();
+                    } else {
+                      fs_error();
+                    }
+                  })
+                );
+              }),
+              fs_error
+            );
+          }),
+          fs_error
+        );
+      },
+      FS_proto = FileSaver.prototype,
+      saveAs = function (blob, name) {
+        return new FileSaver(blob, name);
+      };
+    FS_proto.abort = function () {
+      var filesaver = this;
+      filesaver.readyState = filesaver.DONE;
+      dispatch(filesaver, "abort");
+    };
+    FS_proto.readyState = FS_proto.INIT = 0;
+    FS_proto.WRITING = 1;
+    FS_proto.DONE = 2;
+    FS_proto.error =
+      FS_proto.onwritestart =
+      FS_proto.onprogress =
+      FS_proto.onwrite =
+      FS_proto.onabort =
+      FS_proto.onerror =
+      FS_proto.onwriteend =
+        null;
+    view.addEventListener("unload", process_deletion_queue, false);
+    return saveAs;
+  })(self);
+var key = [
+  2815074099, 1725469378, 4039046167, 874293617, 3063605751, 3133984764,
+  4097598161, 3620741625,
+];
+var iv = sjcl.codec.hex.toBits("7475383967656A693334307438397532");
+sjcl.beware[
+  "CBC mode is dangerous because it doesn't protect message integrity."
+]();
+
+function handleFileSelect(evt) {
+  try {
+    evt.stopPropagation();
+    evt.preventDefault();
+    var f = evt.target.files[0];
+    var fileName = f.name;
+    if (f.size > 3e7) {
+      throw "File exceeds maximum size of 30MB";
+    }
+    if (f) {
+      var reader = new FileReader();
+      if (evt.target.id == "sav_file2") {
+        reader.onload = function (evt2) {
+          try {
+            decrypt(evt2, fileName, reader.result);
+          } catch (e) {
+            alert("Error: " + e);
+          }
+        };
+        reader.readAsText(f);
+      } else if (evt.target.id == "json_file2") {
+        reader.onload = function (evt2) {
+          try {
+            encrypt(evt2, fileName, reader.result);
+          } catch (e) {
+            alert("Error: " + e);
+          }
+        };
+        reader.readAsText(f);
+      }
+    }
+  } catch (e) {
+    alert("Error: " + e);
+  } finally {
+    evt.target.value = null;
+  }
+}
+
+function decrypt(evt, fileName, base64Str) {
+  var cipherBits = sjcl.codec.base64.toBits(base64Str);
+  var prp = new sjcl.cipher.aes(key);
+  var plainBits = sjcl.mode.cbc.decrypt(prp, cipherBits, iv);
+  var jsonStr = sjcl.codec.utf8String.fromBits(plainBits);
+  try {
+    JSON.parse(jsonStr);
+  } catch (e) {
+    throw "Decrypted file does not contain valid JSON: " + e;
+  }
+  var prettyJsonStr = JSON.stringify(JSON.parse(jsonStr), null, 2);
+  var blob = new Blob([prettyJsonStr], {
+    type: "application/json",
+  });
+  saveAs(blob, fileName.replace(".sav", ".json"));
+}
+
+function encrypt(evt, fileName, jsonStr) {
+  try {
+    JSON.parse(jsonStr);
+  } catch (e) {
+    throw "File does not contain valid JSON: " + e;
+  }
+  var compactJsonStr = JSON.stringify(JSON.parse(jsonStr));
+  var plainBits = sjcl.codec.utf8String.toBits(compactJsonStr);
+  var prp = new sjcl.cipher.aes(key);
+  var cipherBits = sjcl.mode.cbc.encrypt(prp, plainBits, iv);
+  var base64Str = sjcl.codec.base64.fromBits(cipherBits);
+  var blob = new Blob([base64Str], {
+    type: "text/plain",
+  });
+  saveAs(blob, fileName.replace(".txt", ".sav").replace(".json", ".sav"));
+}
+
+function fossdLoad() {
+  try {
+    if (!(window.File && window.FileReader && window.FileList && window.Blob)) {
+      throw "Your browser does not support HTML5 File APIs";
+    }
+    if (!new Blob()) {
+      throw "Your browser does not support HTML5 Blob type";
+    }
+    document
+      .getElementById("sav_file2")
+      .addEventListener("change", handleFileSelect, false);
+    document
+      .getElementById("json_file2")
+      .addEventListener("change", handleFileSelect, false);
+  } catch (e) {
+    alert("Error: " + e);
+  }
+}

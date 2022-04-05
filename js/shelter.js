@@ -1,6 +1,11 @@
-var key = [2815074099, 1725469378, 4039046167, 874293617, 3063605751, 3133984764, 4097598161, 3620741625];
+var key = [
+  2815074099, 1725469378, 4039046167, 874293617, 3063605751, 3133984764,
+  4097598161, 3620741625,
+];
 var iv = sjcl.codec.hex.toBits("7475383967656A693334307438397532");
-sjcl.beware["CBC mode is dangerous because it doesn't protect message integrity."]();
+sjcl.beware[
+  "CBC mode is dangerous because it doesn't protect message integrity."
+]();
 
 function handleFileSelect(evt) {
   try {
@@ -9,34 +14,34 @@ function handleFileSelect(evt) {
     var f = evt.target.files[0];
     var fileName = f.name;
     if (f.size > 1e7) {
-      throw "File exceeds maximum size of 10MB"
+      throw "File exceeds maximum size of 10MB";
     }
     if (f) {
-      var reader = new FileReader;
+      var reader = new FileReader();
       if (evt.target.id == "sav_file") {
         reader.onload = function (evt2) {
           try {
-            decrypt(evt2, fileName, reader.result)
+            decrypt(evt2, fileName, reader.result);
           } catch (e) {
-            alert("Error: " + e)
+            alert("Error: " + e);
           }
         };
-        reader.readAsText(f)
+        reader.readAsText(f);
       } else if (evt.target.id == "json_file") {
         reader.onload = function (evt2) {
           try {
-            encrypt(evt2, fileName, reader.result)
+            encrypt(evt2, fileName, reader.result);
           } catch (e) {
-            alert("Error: " + e)
+            alert("Error: " + e);
           }
         };
-        reader.readAsText(f)
+        reader.readAsText(f);
       }
     }
   } catch (e) {
-    alert("Error: " + e)
+    alert("Error: " + e);
   } finally {
-    evt.target.value = null
+    evt.target.value = null;
   }
 }
 
@@ -48,7 +53,7 @@ function decrypt(evt, fileName, base64Str) {
   try {
     edit(fileName, JSON.parse(jsonStr));
   } catch (e) {
-    throw "Decrypted file does not contain valid JSON: " + e
+    throw "Decrypted file does not contain valid JSON: " + e;
   }
 }
 
@@ -59,34 +64,38 @@ function encrypt(fileName, save) {
   var cipherBits = sjcl.mode.cbc.encrypt(prp, plainBits, iv);
   var base64Str = sjcl.codec.base64.fromBits(cipherBits);
   var blob = new Blob([base64Str], {
-    type: "text/plain"
+    type: "text/plain",
   });
 
-  saveAs(blob, fileName.replace(".txt", ".sav").replace(".json", ".sav"))
+  saveAs(blob, fileName.replace(".txt", ".sav").replace(".json", ".sav"));
 }
 
-document.getElementById("sav_file").addEventListener("change", function (e) {
-  $('.box').removeClass('hover').addClass('ready');
-  $('.instructions').hide();
+document.getElementById("sav_file").addEventListener(
+  "change",
+  function (e) {
+    $(".box").removeClass("hover").addClass("ready");
+    $(".instructions").hide();
 
-  handleFileSelect(e);
-}, false);
+    handleFileSelect(e);
+  },
+  false
+);
 
 document.ondragover = document.ondrop = function (e) {
   e.preventDefault();
   return false;
 };
 
-$('body .container .box')
-  .on('dragover', function (e) {
-    $('.box').addClass('hover');
+$("body .container .box")
+  .on("dragover", function (e) {
+    $(".box").addClass("hover");
   })
-  .on('dragleave', function (e) {
-    $('.box').removeClass('hover');
+  .on("dragleave", function (e) {
+    $(".box").removeClass("hover");
   })
-  .on('drop', function (e) {
-    $('.box').removeClass('hover').addClass('ready');
-    $('.instructions').hide();
+  .on("drop", function (e) {
+    $(".box").removeClass("hover").addClass("ready");
+    $(".instructions").hide();
 
     var file = e.originalEvent.dataTransfer.files[0],
       fileName = file.name,
@@ -106,10 +115,9 @@ $('body .container .box')
     return false;
   });
 
-
 // Modifications
 function edit(fileName, save) {
-  var scope = angular.element($('body').get(0)).scope();
+  var scope = angular.element($("body").get(0)).scope();
 
   scope.$apply(function () {
     scope.save = save;
@@ -117,50 +125,50 @@ function edit(fileName, save) {
   });
 }
 
-var app = angular.module('shelter', []);
+var app = angular.module("shelter", []);
 
-app.controller('dwellerController', function ($scope) {
-  $scope.section = 'vault';
+app.controller("dwellerController", function ($scope) {
+  $scope.section = "vault";
 
-  $scope.fileName = '';
+  $scope.fileName = "";
   $scope.dweller = {};
-  $scope.statsName = ['Unknown', 'S.', 'P.', 'E.', 'C.', 'I.', 'A.', 'L.'];
+  $scope.statsName = ["Unknown", "S.", "P.", "E.", "C.", "I.", "A.", "L."];
 
   var _save = {},
     _lunchboxCount = 0,
     _handyCount = 0;
 
-  Object.defineProperty($scope, 'save', {
+  Object.defineProperty($scope, "save", {
     get: function () {
-      return _save
+      return _save;
     },
     set: function (val) {
       _save = val;
 
       extractCount();
-    }
+    },
   });
 
-  Object.defineProperty($scope, 'lunchboxCount', {
+  Object.defineProperty($scope, "lunchboxCount", {
     get: function () {
-      return _lunchboxCount
+      return _lunchboxCount;
     },
     set: function (val) {
       _lunchboxCount = val;
 
       updateCount();
-    }
+    },
   });
 
-  Object.defineProperty($scope, 'handyCount', {
+  Object.defineProperty($scope, "handyCount", {
     get: function () {
-      return _handyCount
+      return _handyCount;
     },
     set: function (val) {
       _handyCount = val;
 
       updateCount();
-    }
+    },
   });
 
   $scope.editDweller = function (dweller) {
@@ -199,8 +207,9 @@ app.controller('dwellerController', function ($scope) {
   }
 
   function updateCount() {
-    var types = $scope.save.vault.LunchBoxesByType = [],
-      count = $scope.save.vault.LunchBoxesCount = _lunchboxCount + _handyCount;
+    var types = ($scope.save.vault.LunchBoxesByType = []),
+      count = ($scope.save.vault.LunchBoxesCount =
+        _lunchboxCount + _handyCount);
 
     for (var i = 0; i < count; i++) {
       if (i < _lunchboxCount) {
