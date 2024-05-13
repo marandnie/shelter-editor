@@ -1,3 +1,5 @@
+ /* Res 1280x720 */
+ 
 html,
 body {
   height: 100%;
@@ -11,12 +13,12 @@ body {
 }
 
 body > .container {
-  height: 450px;
-  width: 1300px;
-  margin: -225px 0 0 -450px;
+  max-width: 1280px;
+  max-height: 450px;
+/*  margin: 0px 0 0 0px; */
   position: absolute;
-  top: 50%;
-  left: 50%;
+  top: 10%;
+  left: 10%;
   padding: 0;
 }
 
@@ -208,20 +210,20 @@ a.tab:focus {
 
 .instructions {
   color: #aaa;
-  width: 350px;
-  height: 100px;
+  max-width: 350px;
+  max-height: 100px;
   text-align: center;
   position: absolute;
   line-height: 25px;
   top: 40%;
-  left: 50%;
-  margin-top: -100px;
-  margin-left: -175px;
+  left: 10%
+/*  margin-top: 0px;
+  margin-left: 0px;*/
 }
 
 .instructions input {
   display: inline-block;
-  max-width: 100px;
+  max-width: 200px;
 }
 
 .boy {
