@@ -355,14 +355,15 @@ Copyright (C) 2017
     <div class="row box" ng-show="section == 'dwellerlist'">
       <div class="col-sm-12 vault_info">
         <div class="scrollable-table">
-          <table>
+          <input type="text" id="myInput" onkeyup="filterTable()" placeholder="Search for names..">
+          <table id="dwellerlist">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Level</th>
-                <th>Sex</th>
-                <th>Weapon</th>
-                <th>Outfit</th>
+                <th onclick="sortTable(0)">Name</th>
+                <th onclick="sortTable(1)">Level</th>
+                <th onclick="sortTable(2)">Sex</th>
+                <th onclick="sortTable(3)">Weapon</th>
+                <th onclick="sortTable(4)">Outfit</th>
               </tr>
             </thead>
             <tbody>

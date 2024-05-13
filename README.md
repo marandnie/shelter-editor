@@ -29,3 +29,11 @@ For Steam Version the save is in:
 For Android Version the Save is in:
 
 "/Android/data/com.bethsoft.falloutshelter/files"
+
+
+
+
+
+TO-DO LIST:
+have a dropdown with all outfits, weapons, etc. and be able to filter dwellers by a specifit item they have.
+
